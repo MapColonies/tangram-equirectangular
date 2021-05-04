@@ -1,0 +1,67 @@
+
+scene:
+    background:
+        color: black
+styles:
+    stereo:
+        lighting: false
+        base: polygons
+        shaders:
+            defines:
+                EARTH_RADIUS: 6378137.0 //radius of ellipsoid, WGS84
+                PI: 3.14159265358979323846
+                HALF_PI: 1.570796327
+                QUARTER_PI: .785398163
+                deg2rad(d): (d)*PI/180.0
+                rad2deg(d): (d)*180.0/PI
+            blocks:
+                global: |
+                    // http://wiki.openstreetmap.org/wiki/Mercator
+                    float y2lat_m (float y) { return rad2deg(2.0*atan(exp((y/EARTH_RADIUS)))-HALF_PI); }
+                    float x2lon_m (float x) { return rad2deg(x/EARTH_RADIUS); }
+
+                    vec2 plateCaree(float lat, float lon) {
+                        float coslat = cos(lat);
+                        float coslon = cos(lon);
+                        return vec2(lon/(2.*PI), lat/(2.*PI));
+                    }
+
+
+                position: |
+                    // mercator position of the current vertex, u_map_position = center of screen,
+                    // position.xy = vertex screen position in meters from the center of the screen
+                    vec2 mercator = u_map_position.xy + position.xy;
+                    float lat = y2lat_m(mercator.y);
+                    float lon = x2lon_m(mercator.x);
+
+                    position.xy = plateCaree(deg2rad(lat), deg2rad(lon)) * EARTH_RADIUS * 5.;
+
+    stereolines:
+        base: lines
+        mix: stereo
+sources:
+    osm:
+        type: TopoJSON
+        url: https://meetar.github.io/mapzen-tiles/vector/v1/256/all/{z}/{x}/{y}.topojson
+layers:
+    earth:
+        data: { source: osm }
+        draw:
+            stereolines:
+                order: function() { return feature.sort_key || 0; }
+                color: purple
+                width: 3px
+    water:
+        data: { source: osm }
+        draw:
+            stereolines:
+                order: function() { return feature.sort_key || 0; }
+                color: pink
+                width: 1px
+    boundaries:
+        data: { source: osm }
+        draw:
+            stereolines:
+                order: function() { return feature.sort_key || 0; }
+                color: cyan
+                width: 2px
